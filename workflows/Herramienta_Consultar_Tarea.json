@@ -1,0 +1,498 @@
+{
+  "name": "Herramienta_Consultar_Tarea",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "nombre"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        48,
+        368
+      ],
+      "id": "58d9cf3b-74cc-4bab-9ab8-ef729e706e39",
+      "name": "Al recibir nombre"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1b0837ba-14e6-4723-8d37-e3bac68f5379",
+              "name": "nombre",
+              "value": "={{ String($json.nombre ?? '').trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "3a63e9ee-1acc-40e1-b50a-daa7fd1413cc",
+              "name": "SERVICIO_DISPONIBLE",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        272,
+        368
+      ],
+      "id": "f56f7c67-4d74-4c85-a3ac-108e120d707c",
+      "name": "Preparar consulta",
+      "notesInFlow": true,
+      "notes": "Para simular el fallo de Trello cambia SERVICIO_DISPONIBLE a false, prueba y vuelve a dejarlo en true."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "nombre-valido",
+              "leftValue": "={{ $json.nombre.length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        512,
+        368
+      ],
+      "id": "d4ac5226-a6e4-48d3-87d7-7a54af7aacc9",
+      "name": "¿Nombre válido?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "servicio-ok",
+              "leftValue": "={{ $json.SERVICIO_DISPONIBLE === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        752,
+        272
+      ],
+      "id": "52370e1b-ed12-4311-bc5b-c488dd4a69e9",
+      "name": "¿Servicio disponible?"
+    },
+    {
+      "parameters": {
+        "url": "https://api.trello.com/1/boards/6abb0b3e4752d7ac47ad81a1/cards",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "trelloApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,name,idList"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1008,
+        160
+      ],
+      "id": "63f51f1b-9f84-4218-80ee-c196263986c4",
+      "name": "GET tarjetas Trello",
+      "notesInFlow": true,
+      "credentials": {
+        "trelloApi": {
+          "id": "4FBYHmPxe0fPr1Mk",
+          "name": "Trello account"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "Solo lectura (GET). Respuesta completa en UN item: el array viene en body. Así GET listas se ejecuta una sola vez."
+    },
+    {
+      "parameters": {
+        "url": "https://api.trello.com/1/boards/6abb0b3e4752d7ac47ad81a1/lists",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "trelloApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,name"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1248,
+        160
+      ],
+      "id": "af0fae39-b8dd-4c60-b7d3-dc032dc87ba4",
+      "name": "GET listas Trello",
+      "notesInFlow": true,
+      "credentials": {
+        "trelloApi": {
+          "id": "4FBYHmPxe0fPr1Mk",
+          "name": "Trello account"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "Solo lectura (GET). Respuesta completa en UN item: el array viene en body. Así GET listas se ejecuta una sola vez."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Solo lectura: busca la tarjeta del colaborador. No crea, mueve ni borra nada.\nconst entrada = $('Preparar consulta').first().json;\nconst tarjetas = Array.isArray($('GET tarjetas Trello').first().json.body) ? $('GET tarjetas Trello').first().json.body : [];\nconst listas = Array.isArray($('GET listas Trello').first().json.body) ? $('GET listas Trello').first().json.body : [];\n\n// Normaliza: quita '=' inicial (tarjetas antiguas), tildes, mayúsculas y espacios extra\nconst norm = s => String(s ?? '').replace(/^=/, '').normalize('NFD').replace(/[̀-ͯ]/g, '')\n  .toLowerCase().replace(/\\s+/g, ' ').trim();\n// \"Onboarding Andrea Gómez · TI\" -> \"andrea gomez\"\nconst soloNombre = s => {\n  const n = norm(s);\n  const m = n.match(/^(?:onboarding\\s+)?(.+?)\\s+·\\s+.+$/);\n  return m ? m[1] : n.replace(/^onboarding\\s+/, '');\n};\n\nconst buscado = soloNombre(entrada.nombre);\nconst exactas = tarjetas.filter(t => soloNombre(t.name) === buscado);\nconst palabras = buscado.split(' ');\nconst parciales = tarjetas.filter(t => {\n  const w = soloNombre(t.name).split(' ');\n  return palabras.every(p => w.includes(p));\n});\nconst candidatas = exactas.length ? exactas : parciales;\nconst base = { origen: 'trello', solo_lectura: true };\n\nif (candidatas.length === 0) {\n  return [{ json: { ...base, estado: 'no_encontrado', encontrado: false, lista: '', titulo: entrada.nombre,\n    motivo: 'No hay una tarjeta de onboarding con ese nombre en el tablero.' } }];\n}\nif (candidatas.length > 1) {\n  return [{ json: { ...base, estado: 'entrada_no_valida', encontrado: false, lista: '', titulo: entrada.nombre,\n    motivo: 'Nombre ambiguo: hay varias tarjetas. Pide el nombre completo o el área.',\n    coincidencias: candidatas.map(t => String(t.name).replace(/^=/, '')) } }];\n}\nconst tarjeta = candidatas[0];\nconst lista = listas.find(l => l.id === tarjeta.idList);\nreturn [{ json: { ...base, estado: 'consultado', encontrado: true, lista: lista?.name ?? '',\n  titulo: String(tarjeta.name).replace(/^=/, '') } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        160
+      ],
+      "id": "feac23ba-1194-4fa6-ae0a-5f5deec88e17",
+      "name": "Buscar tarea y construir respuesta",
+      "notesInFlow": true,
+      "notes": "Busca el nombre dentro del título 'Onboarding <nombre> · <área>'. Acepta nombre completo o parcial; si hay varias coincidencias devuelve entrada_no_valida con las opciones."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1533b9f0-5d06-440d-adee-68731e5ba82c",
+              "name": "estado",
+              "value": "entrada_no_valida",
+              "type": "string"
+            },
+            {
+              "id": "7054c582-cf87-4b96-87af-cdd4f83dde5d",
+              "name": "encontrado",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "484e785c-8f44-44bd-999c-5862468761e7",
+              "name": "lista",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "5a801925-713c-40be-93bd-2d85a1a69fe0",
+              "name": "titulo",
+              "value": "={{ '' }}",
+              "type": "string"
+            },
+            {
+              "id": "aab5b546-a09c-423b-9629-c112b8556898",
+              "name": "origen",
+              "value": "no_consultado",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        752,
+        560
+      ],
+      "id": "c4c43507-f00d-487c-b0ae-9a760be25ba6",
+      "name": "Respuesta entrada no válida"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2414947e-a130-4d6c-b3f8-78787d365406",
+              "name": "estado",
+              "value": "no_disponible",
+              "type": "string"
+            },
+            {
+              "id": "b0513ad3-5ae9-4abd-b750-fdd7e17de500",
+              "name": "encontrado",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "c350c8e5-c364-4bab-9802-e8eae7ab36e7",
+              "name": "lista",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "b5ce2a4e-c874-470e-86a2-6580a883b555",
+              "name": "titulo",
+              "value": "={{ $('Preparar consulta').first().json.nombre }}",
+              "type": "string"
+            },
+            {
+              "id": "6c660602-4ab8-40ed-bb1c-ce2cabeebe2c",
+              "name": "origen",
+              "value": "no_consultado",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1008,
+        560
+      ],
+      "id": "89e41936-35cc-42de-b2a2-a3d04cc1e1d2",
+      "name": "Respuesta servicio no disponible"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        48,
+        768
+      ],
+      "id": "da07e138-e9c9-4b4e-8dd1-01268f06417d",
+      "name": "Prueba manual",
+      "notesInFlow": true,
+      "notes": "Para probar la herramienta sin el agente. Cambia el nombre en el nodo siguiente."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b1f0c3a2-0d1e-4c55-9a11-7f3e2c1a0003",
+              "name": "nombre",
+              "value": "Andrea Gómez",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        768
+      ],
+      "id": "a7aa254c-6903-43fc-a155-00fde048a65f",
+      "name": "Nombre de prueba",
+      "notesInFlow": true,
+      "notes": "Casos: nombre que exista, 'Pedro Inventado', vacío."
+    },
+    {
+      "parameters": {
+        "content": "## Herramienta de consulta · SOLO LECTURA\nEntrada: **nombre**. Salida: estado (consultado · no_encontrado · no_disponible · entrada_no_valida), encontrado, lista, titulo, origen.\n\n**no_disponible ≠ no existe.**\n\n⚠️ Verifica que el ID del tablero sea el MISMO que usa el flujo principal.",
+        "height": 240,
+        "width": 520,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "51b06458-4e30-436d-a193-0bb6c00da3e3",
+      "name": "LEER - Herramienta"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Al recibir nombre": {
+      "main": [
+        [
+          {
+            "node": "Preparar consulta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar consulta": {
+      "main": [
+        [
+          {
+            "node": "¿Nombre válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Nombre válido?": {
+      "main": [
+        [
+          {
+            "node": "¿Servicio disponible?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta entrada no válida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Servicio disponible?": {
+      "main": [
+        [
+          {
+            "node": "GET tarjetas Trello",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta servicio no disponible",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET tarjetas Trello": {
+      "main": [
+        [
+          {
+            "node": "GET listas Trello",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta servicio no disponible",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET listas Trello": {
+      "main": [
+        [
+          {
+            "node": "Buscar tarea y construir respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respuesta servicio no disponible",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prueba manual": {
+      "main": [
+        [
+          {
+            "node": "Nombre de prueba",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nombre de prueba": {
+      "main": [
+        [
+          {
+            "node": "Preparar consulta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "44189954-ba5f-41e2-b0b6-8bbe92b083aa",
+  "meta": {
+    "instanceId": "a334d18f9eec94c58ba59b9ef65243bebf3b9d098f91744195e4fea1ac9cd0a7"
+  },
+  "nodeGroups": [],
+  "id": "tnaJkjKVbaKN1Fw3",
+  "tags": []
+}
